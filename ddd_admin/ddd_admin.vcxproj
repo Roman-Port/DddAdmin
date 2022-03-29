@@ -99,27 +99,23 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="game.h" />
-    <ClInclude Include="game_cvar_monitoring.h" />
-    <ClInclude Include="game_players.h" />
-    <ClInclude Include="game_properties.h" />
-    <ClInclude Include="ddd_defines.h" />
-    <ClInclude Include="game_watch_impl.h" />
+    <ClInclude Include="callbacks.h" />
+    <ClInclude Include="config.h" />
     <ClInclude Include="io.h" />
-    <ClInclude Include="net.h" />
     <ClInclude Include="plugin.h" />
-    <ClInclude Include="util.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="game.cpp" />
-    <ClCompile Include="game_cvar_monitoring.cpp" />
-    <ClCompile Include="game_players.cpp" />
-    <ClCompile Include="game_players_watch.cpp" />
-    <ClCompile Include="game_properties.cpp" />
-    <ClCompile Include="msg_writer.cpp" />
-    <ClCompile Include="net.cpp" />
+    <ClCompile Include="callbacks.cpp" />
+    <ClCompile Include="config.cpp" />
     <ClCompile Include="plugin.cpp" />
-    <ClCompile Include="util.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ddd_abstraction\ddd_abstraction.vcxproj">
+      <Project>{7169d436-9348-47f3-8ba4-5221bcb86cdf}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\ddd_net\ddd_net.vcxproj">
+      <Project>{a1d609ec-f940-4c3d-8182-993bc470eefb}</Project>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{EA8E7106-8D09-46A1-881B-FFBC4B8532F2}</ProjectGuid>
@@ -1098,11 +1094,11 @@
     <ClCompile>
       <AdditionalOptions>/D SE_EPISODE1=1 /D SE_DARKMESSIAH=2 /D SE_ORANGEBOX=3 /D SE_BLOODYGOODTIME=4 /D SE_EYE=5 /D SE_CSS=6 /D SE_ORANGEBOXVALVE=7 /D SE_LEFT4DEAD=8 /D SE_LEFT4DEAD2=9 /D SE_ALIENSWARM=10 /D SE_PORTAL2=1 /D SE_CSGO=12 %(AdditionalOptions)</AdditionalOptions>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(MMSOURCE19)\core;$(MMSOURCE19)\core\sourcehook;$(HL2SDKPORTAL2)\public;$(HL2SDKPORTAL2)\public\engine;$(HL2SDKPORTAL2)\public\game\server;$(HL2SDKPORTAL2)\public\tier0;$(HL2SDKPORTAL2)\public\tier1;$(HL2SDKPORTAL2)\public\vstdlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(MMSOURCE19)\core;$(MMSOURCE19)\core\sourcehook;$(HL2SDKPORTAL2)\public;$(HL2SDKPORTAL2)\public\engine;$(HL2SDKPORTAL2)\public\game\server;$(HL2SDKPORTAL2)\public\tier0;$(HL2SDKPORTAL2)\public\tier1;$(HL2SDKPORTAL2)\public\vstdlib;..\ddd_abstraction\include;..\ddd_net\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;STUB_MM_EXPORTS;COMPILER_MSVC;COMPILER_MSVC32;SOURCE_ENGINE=11;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>

@@ -13,16 +13,24 @@ namespace LibDddAdminTransport
         {
             //Set
             this.logger = logger;
-            this.endpoint = endpoint;
+
+            //Create server
+            server = new Socket(SocketType.Stream, ProtocolType.Tcp);
+            server.Bind(endpoint);
+            server.Listen(4);
 
             //Create worker
             worker = new Thread(WorkerThread);
         }
 
-        public const byte CURRENT_PROTOCOL_VERSION = 1;
+        public const int NET_HEADER_LENGTH = 12;
+
+        public const ushort CURRENT_PROTOCOL_VERSION = 2;
+        public const ushort CURRENT_OPCODE_VERSION = 1;
 
         private IGameTransportLogger logger;
-        private IPEndPoint endpoint;
+        private Socket server;
+        private Socket sock;
         private Thread worker;
         private Dictionary<GamePacketEndpoint, Action<GameMessage>> bindings = new Dictionary<GamePacketEndpoint, Action<GameMessage>>();
         private bool connected;
@@ -32,7 +40,7 @@ namespace LibDddAdminTransport
         public bool Connected
         {
             get => connected;
-            set
+            private set
             {
                 if (value == connected)
                     return;
@@ -47,8 +55,21 @@ namespace LibDddAdminTransport
             bindings.Add(endpoint, callback);
         }
 
-        public void Connect()
+        public void SendMessage(GamePacketEndpoint endpoint, GameMessage message)
         {
+            //Serialize
+            byte[] buffer = new byte[NET_HEADER_LENGTH + message.SerializedLength];
+            EncodePacketHeader(buffer, (uint)buffer.Length, CURRENT_PROTOCOL_VERSION, CURRENT_OPCODE_VERSION, endpoint);
+            message.Serialize(buffer, NET_HEADER_LENGTH);
+
+            //Deliver
+            lock (sock)
+                sock.Send(buffer);
+        }
+
+        public void Listen()
+        {
+            server.Listen(4);
             worker.Start();
         }
 
@@ -56,17 +77,11 @@ namespace LibDddAdminTransport
         {
             while (true)
             {
-                Socket sock = null;
                 try
                 {
-                    //logger.Log
-                    logger.LogInfo("WorkerThread", $"Attempting to connect to game server at {endpoint}...");
-
-                    //Open socket to the server
-                    sock = new Socket(SocketType.Stream, ProtocolType.Tcp);
-                    sock.Connect(endpoint);
-
-                    //logger.Log
+                    //Wait for connection
+                    logger.LogInfo("WorkerThread", $"Awaiting connection from game server...");
+                    sock = server.Accept();
                     logger.LogInfo("WorkerThread", "Successfully opened connection!");
                     Connected = true;
 
@@ -85,14 +100,12 @@ namespace LibDddAdminTransport
                     {
                         if (sock != null)
                             sock.Close();
+                        sock = null;
                     }
                     catch
                     {
 
                     }
-
-                    //Wait
-                    Thread.Sleep(5 * 1000);
                 }
             }
         }
@@ -100,21 +113,19 @@ namespace LibDddAdminTransport
         private void WorkerServiceLoop(Socket sock)
         {
             //Read and decode the packet header
-            DecodePacketHeader(ReadNetBytes(sock, 8), out byte protocolVersion, out GamePacketFlags flags, out GamePacketEndpoint endpoint, out int payloadLength);
+            DecodePacketHeader(ReadNetBytes(sock, NET_HEADER_LENGTH), out uint packetLength, out ushort protocolVersion, out ushort opcodeVersion, out GamePacketEndpoint endpoint);
 
-            //Sanity check protocol version
+            //Check protocol and opcode versions
             if (protocolVersion != CURRENT_PROTOCOL_VERSION)
                 throw new Exception($"Server is not running a compatible protocol version. Server={protocolVersion}, Client={CURRENT_PROTOCOL_VERSION}.");
-
-            //Warn on dropped packets
-            if ((flags & GamePacketFlags.PACKETS_DROPPED) != 0)
-                logger.LogWarn("WorkerServiceLoop", "Server dropped packets, we are not buffering enough! This will likely result in corrupted game state.");
+            if (opcodeVersion != CURRENT_OPCODE_VERSION)
+                throw new Exception($"Server is not running a compatible protocol version. Server={opcodeVersion}, Client={CURRENT_OPCODE_VERSION}.");
 
             //Receive payload
-            byte[] payload = ReadNetBytes(sock, payloadLength);
+            byte[] payload = ReadNetBytes(sock, (int)(packetLength - NET_HEADER_LENGTH));
 
             //Decode message
-            GameMessage msg = GameMessage.Deserialize(payload);
+            GameMessage msg = GameMessage.FromBuffer(payload);
 
             //Find
             Action<GameMessage> callback = null;
@@ -138,12 +149,22 @@ namespace LibDddAdminTransport
             }
         }
 
-        private void DecodePacketHeader(byte[] buffer, out byte protocolVersion, out GamePacketFlags flags, out GamePacketEndpoint endpoint, out int payloadLength)
+        private void EncodePacketHeader(byte[] buffer, uint packetLength, ushort protocolVersion, ushort opcodeVersion, GamePacketEndpoint endpoint)
         {
-            protocolVersion = buffer[0];
-            flags = (GamePacketFlags)buffer[1];
-            endpoint = (GamePacketEndpoint)BitConverter.ToUInt16(buffer, 2);
-            payloadLength = BitConverter.ToInt32(buffer, 4);
+            BitConverter.GetBytes(packetLength).CopyTo(buffer, 0);
+            BitConverter.GetBytes(protocolVersion).CopyTo(buffer, 4);
+            BitConverter.GetBytes(opcodeVersion).CopyTo(buffer, 6);
+            BitConverter.GetBytes((ushort)endpoint).CopyTo(buffer, 8);
+            //reserved at 10
+        }
+
+        private void DecodePacketHeader(byte[] buffer, out uint packetLength, out ushort protocolVersion, out ushort opcodeVersion, out GamePacketEndpoint endpoint)
+        {
+            packetLength = BitConverter.ToUInt32(buffer, 0);
+            protocolVersion = BitConverter.ToUInt16(buffer, 4);
+            opcodeVersion = BitConverter.ToUInt16(buffer, 6);
+            endpoint = (GamePacketEndpoint)BitConverter.ToUInt16(buffer, 8);
+            //reserved at 10
         }
 
         private byte[] ReadNetBytes(Socket sock, int length)

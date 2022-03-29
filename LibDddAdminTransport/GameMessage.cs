@@ -11,19 +11,101 @@ namespace LibDddAdminTransport
 
         }
 
-        public static GameMessage Deserialize(byte[] buffer)
+        public static GameMessage FromBuffer(byte[] buffer, int offset = 0)
         {
-            return Deserialize(buffer, 0, buffer.Length);
+            GameMessage msg = new GameMessage();
+            msg.Deserialize(buffer, offset);
+            return msg;
         }
 
-        private static GameMessage Deserialize(byte[] buffer, int offset, int length)
+        private static GameMessage[] ArrayFromBuffer(byte[] buffer, int offset)
         {
-            //Create
-            GameMessage msg = new GameMessage();
+            //Get the number of items
+            int count = BitConverter.ToInt32(buffer, offset); offset += 4;
 
-            //Read properties until the end is reached
-            int end = offset + length;
-            while (offset < end)
+            //Make array and process
+            GameMessage[] msgs = new GameMessage[count];
+            for (int i = 0; i < msgs.Length; i++)
+            {
+                msgs[i] = new GameMessage();
+                offset = msgs[i].Deserialize(buffer, offset);
+            }
+            return msgs;
+        }
+
+        private Dictionary<GameMessageKey, object> values = new Dictionary<GameMessageKey, object>();
+
+        public int SerializedLength
+        {
+            get
+            {
+                int length = 2;
+                foreach (var p in values)
+                {
+                    length += 2 + 2 + 4;
+                    length += GetItemSize(p.Value);
+                }
+                return length;
+            }
+        }
+
+        public int Serialize(byte[] buffer, int offset)
+        {
+            //Write the number of properties
+            BitConverter.GetBytes((ushort)values.Count).CopyTo(buffer, offset); offset += 2;
+
+            //Write each property
+            foreach (var p in values)
+            {
+                //Calculate size
+                int size = GetItemSize(p.Value);
+
+                //Write header
+                BitConverter.GetBytes((ushort)p.Key).CopyTo(buffer, offset); offset += 2;
+                BitConverter.GetBytes((ushort)GetItemType(p.Value)).CopyTo(buffer, offset); offset += 2;
+                BitConverter.GetBytes((uint)size).CopyTo(buffer, offset); offset += 4;
+
+                //Convert
+                if (p.Value is short valueShort)
+                    BitConverter.GetBytes(valueShort).CopyTo(buffer, offset);
+                else if (p.Value is int valueInt)
+                    BitConverter.GetBytes(valueInt).CopyTo(buffer, offset);
+                else if (p.Value is long valueLong)
+                    BitConverter.GetBytes(valueLong).CopyTo(buffer, offset);
+                else if (p.Value is float valueFloat)
+                    BitConverter.GetBytes(valueFloat).CopyTo(buffer, offset);
+                else if (p.Value is string valueString)
+                    Encoding.UTF8.GetBytes(valueString).CopyTo(buffer, offset);
+                else if (p.Value is GameMessage valueObject)
+                    valueObject.Serialize(buffer, offset);
+                else if (p.Value is GameMessage[] valueObjectArr)
+                    SerializeArray(valueObjectArr, buffer, offset);
+                else
+                    throw new Exception("This type cannot be serialized.");
+
+                //Advance
+                offset += size;
+            }
+            return offset;
+        }
+
+        private static void SerializeArray(GameMessage[] messages, byte[] buffer, int offset)
+        {
+            //Write the number of items
+            BitConverter.GetBytes((ushort)messages.Length).CopyTo(buffer, offset); offset += 4;
+
+            //Serialize each
+            foreach (var m in messages)
+                offset = m.Serialize(buffer, offset);
+        }
+
+        public int Deserialize(byte[] buffer, int offset)
+        {
+            //Read the number of properties
+            int propCount = BitConverter.ToUInt16(buffer, offset); offset += 2;
+            
+            //Read all of these
+            for (int i = 0; i < propCount; i++)
             {
                 //Decode header
                 GameMessageKey key = (GameMessageKey)BitConverter.ToUInt16(buffer, offset); offset += 2;
@@ -33,29 +115,34 @@ namespace LibDddAdminTransport
                 //Convert to desired object
                 switch (type)
                 {
-                    case GameMessageKey.DDDTYPE_SHORT:
+                    case GameMessageKey.TYPE_INT16:
                         if (propLen != 2)
                             throw new Exception("Error decoding message; Invalid length for data type.");
-                        msg.PutShort(key, BitConverter.ToInt16(buffer, offset));
+                        PutShort(key, BitConverter.ToInt16(buffer, offset));
                         break;
-                    case GameMessageKey.DDDTYPE_INT:
+                    case GameMessageKey.TYPE_INT32:
                         if (propLen != 4)
                             throw new Exception("Error decoding message; Invalid length for data type.");
-                        msg.PutInt(key, BitConverter.ToInt32(buffer, offset));
+                        PutInt(key, BitConverter.ToInt32(buffer, offset));
                         break;
-                    case GameMessageKey.DDDTYPE_FLOAT:
+                    case GameMessageKey.TYPE_INT64:
+                        if (propLen != 8)
+                            throw new Exception("Error decoding message; Invalid length for data type.");
+                        PutLong(key, BitConverter.ToInt64(buffer, offset));
+                        break;
+                    case GameMessageKey.TYPE_FLOAT:
                         if (propLen != 4)
                             throw new Exception("Error decoding message; Invalid length for data type.");
-                        msg.PutFloat(key, BitConverter.ToSingle(buffer, offset));
+                        PutFloat(key, BitConverter.ToSingle(buffer, offset));
                         break;
-                    case GameMessageKey.DDDTYPE_STRING:
-                        msg.PutString(key, Encoding.UTF8.GetString(buffer, offset, propLen));
+                    case GameMessageKey.TYPE_STRING:
+                        PutString(key, Encoding.UTF8.GetString(buffer, offset, propLen));
                         break;
-                    case GameMessageKey.DDDTYPE_MESSAGE:
-                        msg.PutMessage(key, Deserialize(buffer, offset, propLen));
+                    case GameMessageKey.TYPE_OBJECT:
+                        PutMessage(key, FromBuffer(buffer, offset));
                         break;
-                    case GameMessageKey.DDDTYPE_MESSAGE_ARRAY:
-                        msg.PutMessageArray(key, DeserializeArray(buffer, offset, propLen));
+                    case GameMessageKey.TYPE_OBJECT_ARR:
+                        PutMessageArray(key, ArrayFromBuffer(buffer, offset));
                         break;
                     default:
                         throw new Exception("Error decoding message; Unknown type: " + type);
@@ -65,41 +152,8 @@ namespace LibDddAdminTransport
                 offset += propLen;
             }
 
-            //Make sure we land right on the dot
-            if (offset != end)
-                throw new Exception("Parsing bug; Read too far!");
-
-            return msg;
+            return offset;
         }
-
-        private static List<GameMessage> DeserializeArray(byte[] buffer, int offset, int length)
-        {
-            //Query length and create
-            int end = offset + length;
-            int count = BitConverter.ToInt32(buffer, offset); offset += 4;
-            List<GameMessage> result = new List<GameMessage>(count);
-
-            //Deserialize each
-            for (int i = 0; i < count; i++)
-            {
-                //Read length
-                int propLen = BitConverter.ToInt32(buffer, offset); offset += 4;
-
-                //Deserialize
-                result.Add(Deserialize(buffer, offset, propLen));
-
-                //Advance
-                offset += propLen;
-            }
-
-            //Make sure we land right on the dot
-            if (offset != end)
-                throw new Exception("Parsing bug; Read too far!");
-
-            return result;
-        }
-
-        private Dictionary<GameMessageKey, object> values = new Dictionary<GameMessageKey, object>();
 
         public IReadOnlyDictionary<GameMessageKey, object> RawValues => values;
 
@@ -114,6 +168,11 @@ namespace LibDddAdminTransport
         }
 
         public void PutInt(GameMessageKey key, int value)
+        {
+            values.Add(key, value);
+        }
+
+        public void PutLong(GameMessageKey key, long value)
         {
             values.Add(key, value);
         }
@@ -133,7 +192,7 @@ namespace LibDddAdminTransport
             values.Add(key, value);
         }
 
-        public void PutMessageArray(GameMessageKey key, List<GameMessage> value)
+        public void PutMessageArray(GameMessageKey key, GameMessage[] value)
         {
             values.Add(key, value);
         }
@@ -146,6 +205,11 @@ namespace LibDddAdminTransport
         public int GetInt(GameMessageKey key)
         {
             return Get<int>(key);
+        }
+
+        public long GetLong(GameMessageKey key)
+        {
+            return Get<long>(key);
         }
 
         public float GetFloat(GameMessageKey key)
@@ -163,9 +227,9 @@ namespace LibDddAdminTransport
             return Get<GameMessage>(key);
         }
 
-        public List<GameMessage> GetMessageArray(GameMessageKey key)
+        public GameMessage[] GetMessageArray(GameMessageKey key)
         {
-            return Get<List<GameMessage>>(key);
+            return Get<GameMessage[]>(key);
         }
 
         private T Get<T>(GameMessageKey key)
@@ -220,17 +284,44 @@ namespace LibDddAdminTransport
         private GameMessageKey GetItemType(object o)
         {
             if (o.GetType() == typeof(short))
-                return GameMessageKey.DDDTYPE_SHORT;
+                return GameMessageKey.TYPE_INT16;
             if (o.GetType() == typeof(int))
-                return GameMessageKey.DDDTYPE_INT;
+                return GameMessageKey.TYPE_INT32;
+            if (o.GetType() == typeof(long))
+                return GameMessageKey.TYPE_INT64;
             if (o.GetType() == typeof(float))
-                return GameMessageKey.DDDTYPE_FLOAT;
+                return GameMessageKey.TYPE_FLOAT;
             if (o.GetType() == typeof(string))
-                return GameMessageKey.DDDTYPE_STRING;
+                return GameMessageKey.TYPE_STRING;
             if (o.GetType() == typeof(GameMessage))
-                return GameMessageKey.DDDTYPE_MESSAGE;
-            if (o.GetType() == typeof(List<GameMessage>))
-                return GameMessageKey.DDDTYPE_MESSAGE_ARRAY;
+                return GameMessageKey.TYPE_OBJECT;
+            if (o.GetType() == typeof(GameMessage[]))
+                return GameMessageKey.TYPE_OBJECT_ARR;
+            throw new Exception("Invalid network type.");
+        }
+
+        private int GetItemSize(object o)
+        {
+            if (o.GetType() == typeof(short))
+                return 2;
+            if (o.GetType() == typeof(int))
+                return 4;
+            if (o.GetType() == typeof(long))
+                return 8;
+            if (o.GetType() == typeof(float))
+                return 4;
+            if (o.GetType() == typeof(string))
+                return (o as string).Length;
+            if (o.GetType() == typeof(GameMessage))
+                return (o as GameMessage).SerializedLength;
+            if (o.GetType() == typeof(GameMessage[]))
+            {
+                GameMessage[] msgs = (o as GameMessage[]);
+                int len = 4;
+                foreach (var m in msgs)
+                    len += m.SerializedLength;
+                return len;
+            }
             throw new Exception("Invalid network type.");
         }
     }
