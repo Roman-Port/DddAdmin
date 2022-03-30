@@ -23,6 +23,8 @@ public:
 	virtual bool create_property_watch(const char* classname, const char* propertyname, IDddAbsWatchCallback* callback) override;
 	virtual bool find_cvar(const char* name, IDddAbsCvar** result) override;
 	virtual void reset_watches() override;
+	virtual void run_command(const char* command) override;
+	virtual void change_map(const char* map, const char* mode) override;
 
 private:
 	IDddAbsCallbacks* callbacks;

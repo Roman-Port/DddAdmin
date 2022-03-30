@@ -15,11 +15,13 @@
     <ClInclude Include="config.h" />
     <ClInclude Include="io.h" />
     <ClInclude Include="plugin.h" />
+    <ClInclude Include="stopwatch.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="callbacks.cpp" />
     <ClCompile Include="config.cpp" />
     <ClCompile Include="plugin.cpp" />
+    <ClCompile Include="stopwatch.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ddd_abstraction\ddd_abstraction.vcxproj">

@@ -16,7 +16,9 @@ ddd_plugin::ddd_plugin() :
 	cb_kills(client, DddNetOpcode::KILLS),
 	cb_deaths(client, DddNetOpcode::DEATHS),
 	cb_goat_kills(client, DddNetOpcode::GOAT_KILLS),
-	cb_heal_points(client, DddNetOpcode::HEAL_POINTS)
+	cb_heal_points(client, DddNetOpcode::HEAL_POINTS),
+	stat_max_frame_time(0),
+	stat_elapsed_frames(0)
 {
 
 }
@@ -80,13 +82,43 @@ void ddd_plugin::AllPluginsLoaded()
 
 void ddd_plugin::on_tick()
 {
+	//Record the time since the last frame
+	double lastFrameTime = stat_last_frame.elapsed_seconds();
+	stat_last_frame.reset();
+	stat_elapsed_frames++;
+	if (lastFrameTime > stat_max_frame_time)
+		stat_max_frame_time = lastFrameTime;
+
+	//Periodically send stats
+	double lastStatTime = stat_last_update.elapsed_seconds();
+	if (lastStatTime > 60) {
+		//Create and send message
+		DddNetMsg packet;
+		packet.put_double(DddNetOpcode::AVG_FRAME_DURATION, lastStatTime / stat_elapsed_frames);
+		packet.put_double(DddNetOpcode::MAX_FRAME_DURATION, stat_max_frame_time);
+		client->enqueue_outgoing(DddNetEndpoint::SERVER_REPORT_STAT, packet);
+
+		//Reset
+		stat_last_update.reset();
+		stat_max_frame_time = 0;
+		stat_elapsed_frames = 0;
+	}
+
 	//Attempt to dequeue a message
-	DddNetMsg packet;
-	DddNetEndpoint endpoint;
-	if (client->dequeue_incoming(&endpoint, packet)) {
-		switch (endpoint) {
-		case DddNetEndpoint::CONNECTION_INIT: send_init_message(); break;
+	try {
+		DddNetMsg packet;
+		DddNetEndpoint endpoint;
+		if (client->dequeue_incoming(&endpoint, packet)) {
+			switch (endpoint) {
+			case DddNetEndpoint::CONNECTION_INIT: send_init_message(); break;
+			case DddNetEndpoint::PLAYER_KICK: handle_kick(&packet); break;
+			case DddNetEndpoint::MAP_CHANGE: handle_map_change(&packet); break;
+			case DddNetEndpoint::SERVER_COMMAND: handle_console_command(&packet); break;
+			}
 		}
+	}
+	catch (std::exception ex) {
+		printf("ddd_admin:WARN // Got exception handling tick: %s\n", ex.what());
 	}
 }
 
@@ -97,7 +129,7 @@ void ddd_plugin::on_player_connect(IDddAbsPlayer* player)
 	packet.put_int(DddNetOpcode::USER_ID, player->get_index());
 	packet.put_string(DddNetOpcode::NAME, player->get_info()->GetName());
 	packet.put_string(DddNetOpcode::STEAM_ID, player->get_info()->GetNetworkIDString());
-	packet.put_string(DddNetOpcode::IP_ADDRESS, "");
+	packet.put_string(DddNetOpcode::IP_ADDRESS, player->get_ip_address());
 	packet.put_int(DddNetOpcode::TEAM, player->get_info()->GetTeamIndex());
 	client->enqueue_outgoing(DddNetEndpoint::PLAYER_CONNECT, packet);
 }
@@ -152,6 +184,94 @@ void ddd_plugin::send_init_message()
 
 	//Reset watches so they get resent
 	game->reset_watches();
+}
+
+void ddd_plugin::handle_kick(DddNetMsg* message)
+{
+	//Get the info
+	int ackId;
+	int clientId;
+	char clientSteamId[64];
+	char kickMessage[512];
+	if (!message->get_int(DddNetOpcode::ACK_ID, &ackId) ||
+		!message->get_int(DddNetOpcode::USER_ID, &clientId) ||
+		!message->get_string(DddNetOpcode::STEAM_ID, clientSteamId, sizeof(clientSteamId)) ||
+		!message->get_string(DddNetOpcode::KICK_REASON, kickMessage, sizeof(kickMessage)))
+	{
+		printf("ddd_admin:WARN // Failed to get required properties in incoming PLAYER_KICK message.\n");
+		return;
+	}
+
+	//Get the player
+	int result;
+	IDddAbsPlayer* player;
+	if (!game->find_player_by_index(clientId, &player)) {
+		printf("ddd_admin:WARN // Failed to find player to kick from incoming kick message!\n");
+		result = 1;
+	}
+	else {
+		//Sanity check, just to make sure
+		if (strcmp(clientSteamId, player->get_info()->GetNetworkIDString()) != 0) {
+			printf("ddd_admin:WARN // Failed to sanity check player Steam ID to kick! Expected %s, got %s!\n", clientSteamId, player->get_info()->GetNetworkIDString());
+			result = 2;
+		}
+		else {
+			//Perform the kick
+			player->kick(kickMessage);
+			result = 0;
+		}
+	}
+
+	//Send ACK back
+	send_ack(ackId, result);
+}
+
+void ddd_plugin::handle_map_change(DddNetMsg* message)
+{
+	//Get the info
+	int ackId;
+	char mapName[64];
+	char mapMode[16];
+	if (!message->get_int(DddNetOpcode::ACK_ID, &ackId) ||
+		!message->get_string(DddNetOpcode::MAP_NAME, mapName, sizeof(mapName)) ||
+		!message->get_string(DddNetOpcode::MAP_MODE, mapMode, sizeof(mapMode)))
+	{
+		printf("ddd_admin:WARN // Failed to get required properties in incoming MAP_CHANGE message.\n");
+		return;
+	}
+
+	//Update
+	game->change_map(mapName, mapMode);
+
+	//Send ACK
+	send_ack(ackId, 0);
+}
+
+void ddd_plugin::handle_console_command(DddNetMsg* message)
+{
+	//Get the info
+	int ackId;
+	char command[512];
+	if (!message->get_int(DddNetOpcode::ACK_ID, &ackId) ||
+		!message->get_string(DddNetOpcode::COMMAND, command, sizeof(command)))
+	{
+		printf("ddd_admin:WARN // Failed to get required properties in incoming SERVER_COMMAND message.\n");
+		return;
+	}
+
+	//Update
+	game->run_command(command);
+
+	//Send ACK
+	send_ack(ackId, 0);
+}
+
+void ddd_plugin::send_ack(int ackId, int result)
+{
+	DddNetMsg packet;
+	packet.put_int(DddNetOpcode::ACK_ID, ackId);
+	packet.put_int(DddNetOpcode::ACK_RESULT, result);
+	client->enqueue_outgoing(DddNetEndpoint::CONNECTION_REQUEST_ACK, packet);
 }
 
 bool ddd_plugin::Pause(char* error, size_t maxlen)

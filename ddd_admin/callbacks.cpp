@@ -2,22 +2,24 @@
 
 void ddd_hook_chat::on_command(IDddAbsPlayer* player, const CCommand& command)
 {
-	//Get fields...
-	const char* cmd = command.Arg(0);
-	const char* message = command.Arg(1);
-	if (cmd == 0 || message == 0)
-		return;
+	if (player != 0) {
+		//Get fields...
+		const char* cmd = command.Arg(0);
+		const char* message = command.Arg(1);
+		if (cmd == 0 || message == 0)
+			return;
 
-	//Prepare flags
-	uint16_t flags = 0;
-	flags |= strcmp(cmd, "say_team") == 0;
+		//Prepare flags
+		uint16_t flags = 0;
+		flags |= strcmp(cmd, "say_team") == 0;
 
-	//Send
-	DddNetMsg packet;
-	packet.put_int(DddNetOpcode::USER_ID, player == 0 ? -1 : player->get_index());
-	packet.put_short(DddNetOpcode::FLAGS, flags);
-	packet.put_string(DddNetOpcode::MESSAGE, message);
-	client->enqueue_outgoing(DddNetEndpoint::PLAYER_CHAT, packet);
+		//Send
+		DddNetMsg packet;
+		packet.put_int(DddNetOpcode::USER_ID, player->get_index());
+		packet.put_short(DddNetOpcode::FLAGS, flags);
+		packet.put_string(DddNetOpcode::MESSAGE, message);
+		client->enqueue_outgoing(DddNetEndpoint::PLAYER_CHAT, packet);
+	}
 }
 
 void ddd_hook_watch::on_value_changed(IDddAbsPlayer* player, void* value, size_t value_size)
@@ -35,5 +37,5 @@ void ddd_hook_watch::on_value_changed(IDddAbsPlayer* player, void* value, size_t
 	}
 
 	//Send
-	client->enqueue_outgoing(DddNetEndpoint::PLAYER_WATCH_VAR, packet);
+	client->enqueue_outgoing(DddNetEndpoint::PLAYER_UPDATE, packet);
 }

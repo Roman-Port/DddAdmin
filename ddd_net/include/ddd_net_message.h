@@ -34,6 +34,8 @@ public:
 	void put_short(DddNetOpcode key, int16_t value);
 	void put_int(DddNetOpcode key, int32_t value);
 	void put_long(DddNetOpcode key, int64_t value);
+	void put_float(DddNetOpcode key, float value);
+	void put_double(DddNetOpcode key, double value);
 	void put_string(DddNetOpcode key, const char* value);
 	void put_msg(DddNetOpcode key, DddNetMsg* msg);
 	void put_msg_array(DddNetOpcode key, DddNetMsg** msgs, size_t count);
@@ -41,6 +43,8 @@ public:
 	bool get_short(DddNetOpcode key, int16_t* value);
 	bool get_int(DddNetOpcode key, int32_t* value);
 	bool get_long(DddNetOpcode key, int64_t* value);
+	bool get_float(DddNetOpcode key, int32_t* value);
+	bool get_double(DddNetOpcode key, int64_t* value);
 	bool get_string(DddNetOpcode key, char* output, size_t output_max);
 	bool get_msg(DddNetOpcode key, DddNetMsg* msg);
 

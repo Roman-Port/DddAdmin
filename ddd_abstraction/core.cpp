@@ -193,3 +193,18 @@ void DddAbsCore::reset_watches()
 	for (int i = 0; i < watches_count; i++)
 		watches[i]->clear_all();
 }
+
+void DddAbsCore::run_command(const char* command)
+{
+	//IMPORTANT: Must end with \n or ;
+	engine->ServerCommand(command);
+}
+
+void DddAbsCore::change_map(const char* map, const char* mode)
+{
+	//engine->ChangeLevel is broken on Dino D-Day, so just create a console command instead...(yuck)
+	char* temp = (char*)malloc(16 + strlen(map) + strlen(mode));
+	sprintf(temp, "changelevel %s %s\n", map, mode);
+	run_command(temp);
+	free(temp);
+}

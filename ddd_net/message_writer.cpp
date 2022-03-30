@@ -75,6 +75,16 @@ void DddNetMsg::put_long(DddNetOpcode key, int64_t value)
 	put(key, DddNetOpcode::TYPE_INT64, &value, sizeof(int64_t));
 }
 
+void DddNetMsg::put_float(DddNetOpcode key, float value)
+{
+	put(key, DddNetOpcode::TYPE_FLOAT, &value, sizeof(float));
+}
+
+void DddNetMsg::put_double(DddNetOpcode key, double value)
+{
+	put(key, DddNetOpcode::TYPE_DOUBLE, &value, sizeof(double));
+}
+
 void DddNetMsg::put_string(DddNetOpcode key, const char* value)
 {
 	put(key, DddNetOpcode::TYPE_STRING, value, value == 0 ? 0 : strlen(value));

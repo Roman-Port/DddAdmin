@@ -26,7 +26,7 @@ namespace LibDddAdminTransport
         public const int NET_HEADER_LENGTH = 12;
 
         public const ushort CURRENT_PROTOCOL_VERSION = 2;
-        public const ushort CURRENT_OPCODE_VERSION = 1;
+        public const ushort CURRENT_OPCODE_VERSION = 3;
 
         private IGameTransportLogger logger;
         private Socket server;

@@ -6,6 +6,7 @@
 #include <ddd_net_client.h>
 #include "callbacks.h"
 #include "config.h"
+#include "stopwatch.h"
 
 #define DDD_PLUGIN_VERSION "1.0.0.1"
 
@@ -37,6 +38,10 @@ public:
 	const char* GetLogTag() {		return "ddd_admin"; }
 private:
 	void send_init_message();
+	void handle_kick(DddNetMsg* message);
+	void handle_map_change(DddNetMsg* message);
+	void handle_console_command(DddNetMsg* message);
+	void send_ack(int ackId, int result);
 private:
 	ddd_admin_config_t config;
 
@@ -53,6 +58,11 @@ private:
 
 	IDddAbsCvar* cvar_say;
 	IDddAbsCvar* cvar_sayteam;
+
+	ddd_stopwatch stat_last_update;
+	ddd_stopwatch stat_last_frame;
+	int stat_elapsed_frames;
+	double stat_max_frame_time;
 
 };
 

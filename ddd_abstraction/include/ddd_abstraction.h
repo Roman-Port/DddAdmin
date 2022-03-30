@@ -15,6 +15,7 @@ public:
 	virtual int get_uniqueid() = 0;
 	virtual IPlayerInfo* get_info() = 0;
 	virtual CBaseEntity* get_entity() = 0;
+	virtual const char* get_ip_address() = 0;
 	virtual void kick(const char* message) = 0;
 
 };
@@ -51,6 +52,8 @@ public:
 	virtual bool create_property_watch(const char* classname, const char* propertyname, IDddAbsWatchCallback* callback) = 0;
 	virtual bool find_cvar(const char* name, IDddAbsCvar** result) = 0;
 	virtual void reset_watches() = 0;
+	virtual void run_command(const char* command) = 0;
+	virtual void change_map(const char* map, const char* mode) = 0;
 
 };
 

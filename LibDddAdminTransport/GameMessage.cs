@@ -74,6 +74,8 @@ namespace LibDddAdminTransport
                     BitConverter.GetBytes(valueLong).CopyTo(buffer, offset);
                 else if (p.Value is float valueFloat)
                     BitConverter.GetBytes(valueFloat).CopyTo(buffer, offset);
+                else if (p.Value is double valueDouble)
+                    BitConverter.GetBytes(valueDouble).CopyTo(buffer, offset);
                 else if (p.Value is string valueString)
                     Encoding.UTF8.GetBytes(valueString).CopyTo(buffer, offset);
                 else if (p.Value is GameMessage valueObject)
@@ -135,6 +137,11 @@ namespace LibDddAdminTransport
                             throw new Exception("Error decoding message; Invalid length for data type.");
                         PutFloat(key, BitConverter.ToSingle(buffer, offset));
                         break;
+                    case GameMessageKey.TYPE_DOUBLE:
+                        if (propLen != 8)
+                            throw new Exception("Error decoding message; Invalid length for data type.");
+                        PutDouble(key, BitConverter.ToDouble(buffer, offset));
+                        break;
                     case GameMessageKey.TYPE_STRING:
                         PutString(key, Encoding.UTF8.GetString(buffer, offset, propLen));
                         break;
@@ -182,6 +189,11 @@ namespace LibDddAdminTransport
             values.Add(key, value);
         }
 
+        public void PutDouble(GameMessageKey key, double value)
+        {
+            values.Add(key, value);
+        }
+
         public void PutString(GameMessageKey key, string value)
         {
             values.Add(key, value);
@@ -215,6 +227,11 @@ namespace LibDddAdminTransport
         public float GetFloat(GameMessageKey key)
         {
             return Get<float>(key);
+        }
+
+        public double GetDouble(GameMessageKey key)
+        {
+            return Get<double>(key);
         }
 
         public string GetString(GameMessageKey key)
@@ -291,6 +308,8 @@ namespace LibDddAdminTransport
                 return GameMessageKey.TYPE_INT64;
             if (o.GetType() == typeof(float))
                 return GameMessageKey.TYPE_FLOAT;
+            if (o.GetType() == typeof(double))
+                return GameMessageKey.TYPE_DOUBLE;
             if (o.GetType() == typeof(string))
                 return GameMessageKey.TYPE_STRING;
             if (o.GetType() == typeof(GameMessage))
@@ -310,6 +329,8 @@ namespace LibDddAdminTransport
                 return 8;
             if (o.GetType() == typeof(float))
                 return 4;
+            if (o.GetType() == typeof(double))
+                return 8;
             if (o.GetType() == typeof(string))
                 return (o as string).Length;
             if (o.GetType() == typeof(GameMessage))

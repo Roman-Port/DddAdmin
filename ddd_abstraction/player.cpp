@@ -1,7 +1,5 @@
 #include "player.h"
 #include <stdexcept>
-#include <inetchannel.h>
-#include <iclient.h>
 
 DddAbsPlayer::DddAbsPlayer()
 {
@@ -48,22 +46,35 @@ CBaseEntity* DddAbsPlayer::get_entity()
 	return entity->m_pNetworkable->GetBaseEntity();
 }
 
+const char* DddAbsPlayer::get_ip_address()
+{
+	return get_net_channel()->GetRemoteAddress().ToString();
+}
+
 void DddAbsPlayer::kick(const char* message)
 {
 	//https://github.com/alliedmodders/sourcemod/blob/ccc818d06e950cd99bdc51ce84500f686b1fa23e/core/PlayerManager.cpp#L2181
-	INetChannel* pNetChan = static_cast<INetChannel*>(engine->GetPlayerNetInfo(get_index()));
-	if (!pNetChan)
-		throw std::runtime_error("Could not get network channel!");
-	IClient* pClient = static_cast<IClient*>(pNetChan->GetMsgHandler());
-	if (!pClient)
-		throw std::runtime_error("Could not get client!");
-
-	//Kick
-	pClient->Disconnect("%s", message);
+	get_client()->Disconnect("%s", message);
 }
 
 void DddAbsPlayer::ensure_valid()
 {
 	if (!is_valid())
 		throw std::runtime_error("Player is not currently connected.");
+}
+
+INetChannel* DddAbsPlayer::get_net_channel()
+{
+	INetChannel* pNetChan = static_cast<INetChannel*>(engine->GetPlayerNetInfo(get_index()));
+	if (!pNetChan)
+		throw std::runtime_error("Could not get network channel!");
+	return pNetChan;
+}
+
+IClient* DddAbsPlayer::get_client()
+{
+	IClient* pClient = static_cast<IClient*>(get_net_channel()->GetMsgHandler());
+	if (!pClient)
+		throw std::runtime_error("Could not get client!");
+	return pClient;
 }

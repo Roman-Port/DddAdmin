@@ -76,6 +76,7 @@ bool DddNetMsg::find(DddNetOpcode key, ddd_net_msg_item** item)
 	while ((*item) != 0) {
 		if ((*item)->header.key == key)
 			return true;
+		(*item) = (*item)->next;
 	}
 	return false;
 }
@@ -110,6 +111,16 @@ bool DddNetMsg::get_int(DddNetOpcode key, int32_t* value)
 bool DddNetMsg::get_long(DddNetOpcode key, int64_t* value)
 {
 	return get_fixed(key, DddNetOpcode::TYPE_INT64, value, sizeof(int64_t));
+}
+
+bool DddNetMsg::get_float(DddNetOpcode key, int32_t* value)
+{
+	return get_fixed(key, DddNetOpcode::TYPE_FLOAT, value, sizeof(float));
+}
+
+bool DddNetMsg::get_double(DddNetOpcode key, int64_t* value)
+{
+	return get_fixed(key, DddNetOpcode::TYPE_DOUBLE, value, sizeof(double));
 }
 
 bool DddNetMsg::get_string(DddNetOpcode key, char* output, size_t output_max)
