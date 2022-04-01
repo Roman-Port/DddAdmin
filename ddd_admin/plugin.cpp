@@ -18,7 +18,8 @@ ddd_plugin::ddd_plugin() :
 	cb_goat_kills(client, DddNetOpcode::GOAT_KILLS),
 	cb_heal_points(client, DddNetOpcode::HEAL_POINTS),
 	stat_max_frame_time(0),
-	stat_elapsed_frames(0)
+	stat_elapsed_frames(0),
+	cb_aprilfools(NULL)
 {
 
 }
@@ -42,6 +43,9 @@ bool ddd_plugin::Load(PluginId id, ISmmAPI* ismm, char* error, size_t maxlen, bo
 	if (!game)
 		return false;
 
+	//Set
+	cb_aprilfools.game = game;
+
 	//Add watches
 	game->create_property_watch("CDDDPlayer", "m_iTeamNum", &cb_team);
 	game->create_property_watch("CDDDPlayer", "m_iPlayerClass", &cb_cls);
@@ -49,6 +53,7 @@ bool ddd_plugin::Load(PluginId id, ISmmAPI* ismm, char* error, size_t maxlen, bo
 	game->create_property_watch("CDDDPlayer", "m_iDeaths", &cb_deaths);
 	game->create_property_watch("CDDDPlayer", "m_iGoatKills", &cb_goat_kills);
 	game->create_property_watch("CDDDPlayer", "m_iHealPoints", &cb_heal_points);
+	game->create_property_watch("CDDDPlayer", "m_iSpecialClass", &cb_aprilfools);
 
 	//Find say CVar
 	if (game->find_cvar("say", &cvar_say))

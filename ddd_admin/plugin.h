@@ -56,6 +56,8 @@ private:
 	ddd_hook_watch cb_goat_kills;
 	ddd_hook_watch cb_heal_points;
 
+	ddd_hook_watch_aprilfools cb_aprilfools;
+
 	IDddAbsCvar* cvar_say;
 	IDddAbsCvar* cvar_sayteam;
 

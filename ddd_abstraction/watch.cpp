@@ -40,14 +40,14 @@ void DddAbsWatch::update(IDddAbsPlayer* player) {
 
 	//Compare
 	if (!initialized[index] || memcmp(dst, src, prop_size) != 0) {
+		//Run callback (so they can change it if wanted)
+		callback->on_value_changed(player, src, prop_size);
+
 		//Copy
 		memcpy(dst, src, prop_size);
 
 		//Update flag
 		initialized[index] = true;
-
-		//Run callback
-		callback->on_value_changed(player, dst, prop_size);
 	}
 }
 
