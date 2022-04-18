@@ -33,7 +33,7 @@
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v100</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -92,6 +92,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>include/ddd_abstraction.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>..\metamod-source\core;..\metamod-source\core\sourcehook;..\hl2sdk\public;..\hl2sdk\public\engine;..\hl2sdk\public\game\server;..\hl2sdk\public\tier0;..\hl2sdk\public\tier1;..\hl2sdk\public\vstdlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -114,9 +115,10 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;STUB_MM_EXPORTS;COMPILER_MSVC;COMPILER_MSVC32;SOURCE_ENGINE=11;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>Create</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>include/ddd_abstraction.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>..\metamod-source\core;..\metamod-source\core\sourcehook;..\hl2sdk\public;..\hl2sdk\public\engine;..\hl2sdk\public\game\server;..\hl2sdk\public\tier0;..\hl2sdk\public\tier1;..\hl2sdk\public\vstdlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -129,7 +131,7 @@
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
     </Link>
     <Lib>
-      <IgnoreSpecificDefaultLibraries>LIBC;LIBCD;LIBCMT;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <IgnoreSpecificDefaultLibraries>LIBC;LIBCD;LIBCMTD;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <AdditionalDependencies>..\hl2sdk\lib\public\interfaces.lib;..\hl2sdk\lib\public\tier0.lib;..\hl2sdk\lib\public\tier1.lib;..\hl2sdk\lib\public\vstdlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
   </ItemDefinitionGroup>
