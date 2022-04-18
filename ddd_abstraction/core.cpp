@@ -53,7 +53,12 @@ void DddAbsCore::server_tick(bool finalTick)
 	}
 
 	//Run user callback
-	callbacks->on_tick();
+	try {
+		callbacks->on_tick();
+	}
+	catch (std::exception ex) {
+		printf("ddd_abstraction:ERROR // Uncaught exception in user on_tick: %s\n", ex.what());
+	}
 }
 
 void DddAbsCore::player_connect(edict_t* entity)
@@ -66,7 +71,12 @@ void DddAbsCore::player_connect(edict_t* entity)
 	players[client].connect(entity);
 
 	//Send events
-	callbacks->on_player_connect(&players[client]);
+	try {
+		callbacks->on_player_connect(&players[client]);
+	}
+	catch (std::exception ex) {
+		printf("ddd_abstraction:ERROR // Uncaught exception in user on_player_connect: %s\n", ex.what());
+	}
 }
 
 void DddAbsCore::player_disconnect(edict_t* entity)
@@ -75,8 +85,17 @@ void DddAbsCore::player_disconnect(edict_t* entity)
 	int client = index_of_edict(entity);
 	assert(client >= 0 && client < MAX_PLAYER_SLOTS);
 
+	//Make sure this client is "connected". If it's not, this is a bot and we should ignore it
+	if (!players[client].is_valid())
+		return;
+
 	//Send events
-	callbacks->on_player_disconnect(&players[client]);
+	try {
+		callbacks->on_player_disconnect(&players[client]);
+	}
+	catch (std::exception ex) {
+		printf("ddd_abstraction:ERROR // Uncaught exception in user on_player_disconnect: %s\n", ex.what());
+	}
 
 	//Destroy
 	players[client].disconnect();
@@ -94,7 +113,12 @@ bool DddAbsCore::level_init(char const* pMapName, char const* pMapEntities, char
 	strcpy_s(level_name, sizeof(level_name), pMapName);
 
 	//Call callback
-	callbacks->on_level_init(pMapName);
+	try {
+		callbacks->on_level_init(pMapName);
+	}
+	catch (std::exception ex) {
+		printf("ddd_abstraction:ERROR // Uncaught exception in user on_level_init: %s\n", ex.what());
+	}
 
 	RETURN_META_VALUE(MRES_IGNORED, false);
 }
@@ -108,7 +132,12 @@ void DddAbsCore::level_shutdown() {
 	level_active = false;
 	
 	//Call callback
-	callbacks->on_level_shutdown();
+	try {
+		callbacks->on_level_shutdown();
+	}
+	catch (std::exception ex) {
+		printf("ddd_abstraction:ERROR // Uncaught exception in user on_level_shutdown: %s\n", ex.what());
+	}
 }
 
 const char* DddAbsCore::get_server_name()
