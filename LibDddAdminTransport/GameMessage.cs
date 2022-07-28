@@ -249,6 +249,11 @@ namespace LibDddAdminTransport
             return Get<GameMessage[]>(key);
         }
 
+        public bool ContainsKey(GameMessageKey key)
+        {
+            return values.ContainsKey(key);
+        }
+
         private T Get<T>(GameMessageKey key)
         {
             //Fetch from dict

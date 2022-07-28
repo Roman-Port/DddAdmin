@@ -2,7 +2,10 @@
 
 #include <stdio.h>
 #include <sourcehook/sourcehook.h>
+#include <stdexcept>
 #include "plugin.h"
+#include "serialization.h"
+#include "../ddd_abstraction/interfaces.h"
 
 #define MAX_QUEUE_SIZE 256
 
@@ -18,8 +21,7 @@ ddd_plugin::ddd_plugin() :
 	cb_goat_kills(client, DddNetOpcode::GOAT_KILLS),
 	cb_heal_points(client, DddNetOpcode::HEAL_POINTS),
 	stat_max_frame_time(0),
-	stat_elapsed_frames(0),
-	cb_aprilfools(NULL)
+	stat_elapsed_frames(0)
 {
 
 }
@@ -43,9 +45,6 @@ bool ddd_plugin::Load(PluginId id, ISmmAPI* ismm, char* error, size_t maxlen, bo
 	if (!game)
 		return false;
 
-	//Set
-	cb_aprilfools.game = game;
-
 	//Add watches
 	game->create_property_watch("CDDDPlayer", "m_iTeamNum", &cb_team);
 	game->create_property_watch("CDDDPlayer", "m_iPlayerClass", &cb_cls);
@@ -53,7 +52,6 @@ bool ddd_plugin::Load(PluginId id, ISmmAPI* ismm, char* error, size_t maxlen, bo
 	game->create_property_watch("CDDDPlayer", "m_iDeaths", &cb_deaths);
 	game->create_property_watch("CDDDPlayer", "m_iGoatKills", &cb_goat_kills);
 	game->create_property_watch("CDDDPlayer", "m_iHealPoints", &cb_heal_points);
-	game->create_property_watch("CDDDPlayer", "m_iSpecialClass", &cb_aprilfools);
 
 	//Find say CVar
 	if (game->find_cvar("say", &cvar_say))
@@ -119,6 +117,9 @@ void ddd_plugin::on_tick()
 			case DddNetEndpoint::PLAYER_KICK: handle_kick(&packet); break;
 			case DddNetEndpoint::MAP_CHANGE: handle_map_change(&packet); break;
 			case DddNetEndpoint::SERVER_COMMAND: handle_console_command(&packet); break;
+			case DddNetEndpoint::SERVER_CVAR_PAGE: handle_cvar_page_command(&packet); break;
+			case DddNetEndpoint::SERVER_CVAR_QUERY: handle_cvar_query_command(&packet); break;
+			case DddNetEndpoint::SERVER_CVAR_SET: handle_cvar_set_command(&packet); break;
 			}
 		}
 	}
@@ -271,11 +272,139 @@ void ddd_plugin::handle_console_command(DddNetMsg* message)
 	send_ack(ackId, 0);
 }
 
+#define CVAR_PAGE_LENGTH 128
+#define CVAR_PAGE_FLAG_CMDS (1 << 0)
+#define CVAR_PAGE_FLAG_VARS (2 << 0)
+
+void ddd_plugin::handle_cvar_page_command(DddNetMsg* message) {
+	//Get info
+	int32_t ackId;
+	int32_t offset;
+	int16_t flags;
+	if (!message->get_int(DddNetOpcode::ACK_ID, &ackId) ||
+		!message->get_int(DddNetOpcode::OFFSET, &offset) ||
+		!message->get_short(DddNetOpcode::FLAGS, &flags))
+	{
+		printf("ddd_admin:WARN // Failed to get required properties in incoming SERVER_CVAR_PAGE message.\n");
+		return;
+	}
+
+	//Prepare iterator and advance by the skip
+	ICvar::Iterator iter(cvarmanager);
+	int32_t remaining = 0;
+	int index = 0;
+	DddNetMsg* results[CVAR_PAGE_LENGTH];
+	ConCommandBase* cmd;
+	for (iter.SetFirst(); iter.IsValid(); iter.Next())
+	{
+		//Check if it fits the criteria
+		cmd = iter.Get();
+		if (cmd->IsCommand() && !(flags & CVAR_PAGE_FLAG_CMDS))
+			continue;
+		if (!cmd->IsCommand() && !(flags & CVAR_PAGE_FLAG_VARS))
+			continue;
+
+		//Check if we're still skipping
+		if (offset > 0) {
+			offset--;
+			continue;
+		}
+
+		//Check if this is in the serializable batch
+		if (index < CVAR_PAGE_LENGTH) {
+			//Serialize and add to output
+			results[index] = new DddNetMsg();
+			serialize_convar(results[index], cmd);
+			index++;
+		}
+		else {
+			//It is not, but still count it towards the remaining ones
+			remaining++;
+		}
+	}
+
+	//Create and send final output
+	DddNetMsg result;
+	result.put_int(DddNetOpcode::ITEMS_REMAINING, remaining);
+	result.put_msg_array(DddNetOpcode::ITEMS, results, index);
+	send_ack_extra(ackId, &result);
+
+	//Finally, clean up
+	for (int i = 0; i < index; i++)
+		delete(results[i]);
+}
+
+void ddd_plugin::handle_cvar_query_command(DddNetMsg* message) {
+	//Get info
+	int32_t ackId;
+	char name[256];
+	if (!message->get_int(DddNetOpcode::ACK_ID, &ackId) ||
+		!message->get_string(DddNetOpcode::NAME, name, 255))
+	{
+		printf("ddd_admin:WARN // Failed to get required properties in incoming SERVER_CVAR_QUERY message.\n");
+		return;
+	}
+
+	//Search for cvar
+	ConCommandBase* cmd = cvarmanager->FindCommandBase(name);
+
+	//Serialize
+	DddNetMsg result;
+	if (cmd != NULL)
+		serialize_convar(&result, cmd);
+
+	//Send
+	send_ack_extra(ackId, &result);
+}
+
+void ddd_plugin::handle_cvar_set_command(DddNetMsg* message) {
+	//Get essential info
+	int32_t ackId;
+	char name[256];
+	if (!message->get_int(DddNetOpcode::ACK_ID, &ackId) ||
+		!message->get_string(DddNetOpcode::NAME, name, 255))
+	{
+		printf("ddd_admin:WARN // Failed to get required properties in incoming SERVER_CVAR_SET message.\n");
+		return;
+	}
+
+	//Search for cvar
+	ConVar* var = cvarmanager->FindVar(name);
+
+	//Apply
+	DddNetMsg result;
+	if (var != NULL) {
+		//Search for value to apply
+		int32_t valueInt;
+		float valueFloat;
+		char valueChar[513];
+		if (message->get_int(DddNetOpcode::VALUE_INT, &valueInt))
+			var->SetValue(valueInt);
+		if (message->get_float(DddNetOpcode::VALUE_FLOAT, &valueFloat))
+			var->SetValue(valueFloat);
+		if (message->get_string(DddNetOpcode::VALUE_STRING, valueChar, 512))
+			var->SetValue(valueChar);
+			
+		//Serialize
+		serialize_convar(&result, var);
+	}
+
+	//Send
+	send_ack_extra(ackId, &result);
+}
+
 void ddd_plugin::send_ack(int ackId, int result)
 {
 	DddNetMsg packet;
-	packet.put_int(DddNetOpcode::ACK_ID, ackId);
 	packet.put_int(DddNetOpcode::ACK_RESULT, result);
+	send_ack_extra(ackId, &packet);
+}
+
+void ddd_plugin::send_ack_extra(int ackId, DddNetMsg* result)
+{
+	DddNetMsg packet;
+	packet.put_int(DddNetOpcode::ACK_ID, ackId);
+	packet.put_msg(DddNetOpcode::ACK_RESULT, result);
 	client->enqueue_outgoing(DddNetEndpoint::CONNECTION_REQUEST_ACK, packet);
 }
 

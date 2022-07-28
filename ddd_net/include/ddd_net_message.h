@@ -43,7 +43,7 @@ public:
 	bool get_short(DddNetOpcode key, int16_t* value);
 	bool get_int(DddNetOpcode key, int32_t* value);
 	bool get_long(DddNetOpcode key, int64_t* value);
-	bool get_float(DddNetOpcode key, int32_t* value);
+	bool get_float(DddNetOpcode key, float* value);
 	bool get_double(DddNetOpcode key, int64_t* value);
 	bool get_string(DddNetOpcode key, char* output, size_t output_max);
 	bool get_msg(DddNetOpcode key, DddNetMsg* msg);

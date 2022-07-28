@@ -16,6 +16,8 @@ bool read_from(const uint8_t** buffer, size_t* buffer_size, T* result) {
 	//Update state
 	(*buffer) += sizeof(T);
 	(*buffer_size) -= sizeof(T);
+
+	return true;
 }
 
 bool DddNetMsg::deserialize(const uint8_t* buffer, size_t buffer_size)
@@ -113,7 +115,7 @@ bool DddNetMsg::get_long(DddNetOpcode key, int64_t* value)
 	return get_fixed(key, DddNetOpcode::TYPE_INT64, value, sizeof(int64_t));
 }
 
-bool DddNetMsg::get_float(DddNetOpcode key, int32_t* value)
+bool DddNetMsg::get_float(DddNetOpcode key, float* value)
 {
 	return get_fixed(key, DddNetOpcode::TYPE_FLOAT, value, sizeof(float));
 }

@@ -21,12 +21,3 @@ private:
 	DddNetOpcode key;
 
 };
-
-class ddd_hook_watch_aprilfools : public IDddAbsWatchCallback {
-
-public:
-	ddd_hook_watch_aprilfools(IDddAbsCore* game) { this->game = game; }
-	virtual void on_value_changed(IDddAbsPlayer* player, void* value, size_t value_size) override;
-	IDddAbsCore* game;
-
-};

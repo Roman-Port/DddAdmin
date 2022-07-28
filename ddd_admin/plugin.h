@@ -41,7 +41,11 @@ private:
 	void handle_kick(DddNetMsg* message);
 	void handle_map_change(DddNetMsg* message);
 	void handle_console_command(DddNetMsg* message);
+	void handle_cvar_page_command(DddNetMsg* message);
+	void handle_cvar_query_command(DddNetMsg* message);
+	void handle_cvar_set_command(DddNetMsg* message);
 	void send_ack(int ackId, int result);
+	void send_ack_extra(int ackId, DddNetMsg* result);
 private:
 	ddd_admin_config_t config;
 
@@ -55,8 +59,6 @@ private:
 	ddd_hook_watch cb_deaths;
 	ddd_hook_watch cb_goat_kills;
 	ddd_hook_watch cb_heal_points;
-
-	ddd_hook_watch_aprilfools cb_aprilfools;
 
 	IDddAbsCvar* cvar_say;
 	IDddAbsCvar* cvar_sayteam;

@@ -39,26 +39,3 @@ void ddd_hook_watch::on_value_changed(IDddAbsPlayer* player, void* value, size_t
 	//Send
 	client->enqueue_outgoing(DddNetEndpoint::PLAYER_UPDATE, packet);
 }
-
-void ddd_hook_watch_aprilfools::on_value_changed(IDddAbsPlayer* player, void* valueRaw, size_t value_size)
-{
-	//Get as int
-	int* value = (int*)valueRaw;
-
-	//Check if it's a desma
-	if ((*value) == 1) {
-		//Log
-		printf("ddd_admin:INFO // April fools-ing...");
-
-		//Determine the new class and give a 1 in 8 chance of it being a microraptor
-		int newClass = 2; //raptor
-		if ((rand() % 8) == 0)
-			newClass = 18;
-
-		//Change it...
-		(*value) = newClass;
-
-		//Send a chat message
-		game->run_command("say Happy April Fools, from Dino Town! :) (press space)\n");
-	}
-}

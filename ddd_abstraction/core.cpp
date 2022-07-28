@@ -2,6 +2,7 @@
 #include "interfaces.h"
 #include "cvar.h"
 #include <cassert>
+#include <stdexcept>
 
 namespace DddAbsCoreHooks {
 	SH_DECL_HOOK1_void(IServerGameClients, ClientFullyConnect, SH_NOATTRIB, 0, edict_t*);
